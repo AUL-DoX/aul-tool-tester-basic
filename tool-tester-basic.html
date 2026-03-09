@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AUL Tool Tester Basic</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e222d;
+    --border: #2a2f3d;
+    --accent: #00e5a0;
+    --accent2: #0099ff;
+    --warn: #ffb300;
+    --danger: #ff4757;
+    --text: #e8ecf4;
+    --text-muted: #6b7280;
+    --pass: #00e5a0;
+    --fail: #ff4757;
+    --pending: #6b7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  /* グリッドノイズ背景 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ヘッダー */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.3);
+    padding: 0.3rem 0.6rem;
+    letter-spacing: 0.1em;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* タブ */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border: none;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-right: 1px solid var(--border);
+    letter-spacing: 0.05em;
+  }
+
+  .tab:last-child { border-right: none; }
+
+  .tab.active {
+    background: var(--surface2);
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+  }
+
+  .tab:hover:not(.active) {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  /* パネル */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* 入力エリア */
+  .input-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .input-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.04);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .drop-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+  }
+
+  .drop-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .drop-text strong {
+    color: var(--accent);
+  }
+
+  .drop-filename {
+    margin-top: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent2);
+  }
+
+  .url-input-wrap {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .url-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.75rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-input:focus {
+    border-color: var(--accent2);
+  }
+
+  .url-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  /* メタ情報入力 */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .meta-field label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.08em;
+  }
+
+  .meta-field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .meta-field input:focus {
+    border-color: var(--accent);
+  }
+
+  /* ボタン */
+  .btn {
+    padding: 0.75rem 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+
+  .btn-primary:hover {
+    background: #00ffb3;
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:disabled {
+    background: var(--border);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid var(--accent2);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(0,153,255,0.1);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    align-items: center;
+  }
+
+  /* 結果エリア */
+  .results {
+    display: none;
+  }
+
+  .results.visible {
+    display: block;
+  }
+
+  /* スコアサマリー */
+  .score-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .score-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid var(--accent);
+    flex-shrink: 0;
+  }
+
+  .score-circle.warn { border-color: var(--warn); }
+  .score-circle.fail { border-color: var(--fail); }
+
+  .score-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .score-circle.warn .score-num { color: var(--warn); }
+  .score-circle.fail .score-num { color: var(--fail); }
+
+  .score-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .score-stats {
+    flex: 1;
+  }
+
+  .score-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+  }
+
+  .score-title.pass { color: var(--pass); }
+  .score-title.warn { color: var(--warn); }
+  .score-title.fail { color: var(--fail); }
+
+  .stat-row {
+    display: flex;
+    gap: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+  }
+
+  .stat-item { color: var(--text-muted); }
+  .stat-item strong { color: var(--text); }
+  .stat-item.pass strong { color: var(--pass); }
+  .stat-item.fail strong { color: var(--fail); }
+  .stat-item.warn strong { color: var(--warn); }
+
+  /* チェックカテゴリ */
+  .check-category {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+  }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+
+  .category-header:hover {
+    background: var(--surface2);
+  }
+
+  .category-icon {
+    font-size: 1rem;
+    width: 24px;
+    text-align: center;
+  }
+
+  .category-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    letter-spacing: 0.05em;
+    flex: 1;
+  }
+
+  .category-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(0,229,160,0.1);
+    color: var(--pass);
+    border: 1px solid rgba(0,229,160,0.3);
+  }
+
+  .category-badge.warn {
+    background: rgba(255,179,0,0.1);
+    color: var(--warn);
+    border-color: rgba(255,179,0,0.3);
+  }
+
+  .category-badge.fail {
+    background: rgba(255,71,87,0.1);
+    color: var(--fail);
+    border-color: rgba(255,71,87,0.3);
+  }
+
+  .category-toggle {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+  }
+
+  .category-toggle.open { transform: rotate(180deg); }
+
+  .check-list {
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+
+  .check-list.open { display: block; }
+
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid rgba(42,47,61,0.5);
+    font-size: 0.84rem;
+  }
+
+  .check-item:last-child { border-bottom: none; }
+
+  .check-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    min-width: 52px;
+    text-align: center;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .check-status.pass {
+    background: rgba(0,229,160,0.1);
+    color: var(--pass);
+    border: 1px solid rgba(0,229,160,0.3);
+  }
+
+  .check-status.fail {
+    background: rgba(255,71,87,0.1);
+    color: var(--fail);
+    border: 1px solid rgba(255,71,87,0.3);
+  }
+
+  .check-status.warn {
+    background: rgba(255,179,0,0.1);
+    color: var(--warn);
+    border: 1px solid rgba(255,179,0,0.3);
+  }
+
+  .check-status.manual {
+    background: rgba(107,114,128,0.1);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .check-content { flex: 1; }
+
+  .check-name {
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+    color: var(--text);
+  }
+
+  .check-detail {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .check-detail.issue {
+    color: var(--warn);
+  }
+
+  /* 手動チェックリスト */
+  .manual-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .manual-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+  }
+
+  .manual-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(42,47,61,0.5);
+    font-size: 0.84rem;
+  }
+
+  .manual-item:last-child { border-bottom: none; }
+
+  .manual-check {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .manual-text { flex: 1; }
+  .manual-text.checked {
+    text-decoration: line-through;
+    color: var(--text-muted);
+  }
+
+  /* VERIFIED.md出力 */
+  .verified-output {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    margin-top: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.8;
+    color: #a8b4c8;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+  }
+
+  .verified-output.visible { display: block; }
+
+  /* ローディング */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .loading.visible { display: block; }
+
+  .loading-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    margin-top: 1rem;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s;
+    animation: progress-anim 1.5s ease-in-out infinite;
+  }
+
+  @keyframes progress-anim {
+    0% { width: 0%; margin-left: 0; }
+    50% { width: 60%; margin-left: 20%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  /* エラー */
+  .error-msg {
+    background: rgba(255,71,87,0.08);
+    border: 1px solid rgba(255,71,87,0.3);
+    color: var(--fail);
+    padding: 0.75rem 1rem;
+    font-size: 0.84rem;
+    margin-top: 0.75rem;
+    display: none;
+  }
+
+  .error-msg.visible { display: block; }
+
+  /* コピーボタン */
+  .copy-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    padding: 0.35rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .output-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+  }
+
+  /* フッター */
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">AUL-DoX</div>
+    <h1>Tool Tester <span>Basic</span></h1>
+    <div class="subtitle">HTML Tool Validator v1.0.0</div>
+  </header>
+
+  <!-- タブ -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('file')">📂 FILE UPLOAD</button>
+    <button class="tab" onclick="switchTab('url')">🔗 URL</button>
+    <button class="tab" onclick="switchTab('manual')">☑️ MANUAL CHECK</button>
+    <button class="tab" onclick="switchTab('verified')">📄 VERIFIED.md</button>
+  </div>
+
+  <!-- FILEパネル -->
+  <div id="panel-file" class="panel active">
+    <div class="input-section">
+      <span class="input-label">// HTML FILE</span>
+      <div class="drop-zone" id="dropZone">
+        <input type="file" accept=".html,.htm" id="fileInput" onchange="handleFileSelect(event)">
+        <div class="drop-icon">⬆</div>
+        <div class="drop-text"><strong>HTMLファイルをドロップ</strong>またはクリックして選択</div>
+        <div class="drop-filename" id="dropFilename"></div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-field">
+          <label>// TOOL NAME</label>
+          <input type="text" id="toolNameFile" placeholder="例：Table Snap v3">
+        </div>
+        <div class="meta-field">
+          <label>// VERSION</label>
+          <input type="text" id="toolVersionFile" placeholder="例：v1.0.0">
+        </div>
+        <div class="meta-field">
+          <label>// DEVELOPER</label>
+          <input type="text" id="developerFile" placeholder="例：AUL-DoX">
+        </div>
+        <div class="meta-field">
+          <label>// TEST DATE</label>
+          <input type="date" id="testDateFile">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="runFileBtn" onclick="runFileCheck()" disabled>▶ RUN QA CHECK</button>
+        <button class="btn btn-secondary" onclick="resetAll()">↺ RESET</button>
+      </div>
+      <div class="error-msg" id="fileError"></div>
+    </div>
+
+    <div class="loading" id="fileLoading">
+      <div class="loading-text">ANALYZING CODE...</div>
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+    </div>
+
+    <div class="results" id="fileResults"></div>
+  </div>
+
+  <!-- URLパネル -->
+  <div id="panel-url" class="panel">
+    <div class="input-section">
+      <span class="input-label">// TARGET URL</span>
+      <div class="url-input-wrap">
+        <input type="url" class="url-input" id="urlInput" placeholder="https://example.github.io/tool/index.html">
+        <button class="btn btn-primary" onclick="fetchUrl()">FETCH</button>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-field">
+          <label>// TOOL NAME</label>
+          <input type="text" id="toolNameUrl" placeholder="例：Table Snap v3">
+        </div>
+        <div class="meta-field">
+          <label>// VERSION</label>
+          <input type="text" id="toolVersionUrl" placeholder="例：v1.0.0">
+        </div>
+        <div class="meta-field">
+          <label>// DEVELOPER</label>
+          <input type="text" id="developerUrl" placeholder="例：AUL-DoX">
+        </div>
+        <div class="meta-field">
+          <label>// TEST DATE</label>
+          <input type="date" id="testDateUrl">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="runUrlBtn" onclick="runUrlCheck()" disabled>▶ RUN QA CHECK</button>
+        <button class="btn btn-secondary" onclick="resetAll()">↺ RESET</button>
+      </div>
+      <div class="error-msg" id="urlError"></div>
+    </div>
+
+    <div class="loading" id="urlLoading">
+      <div class="loading-text">FETCHING & ANALYZING...</div>
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+    </div>
+
+    <div class="results" id="urlResults"></div>
+  </div>
+
+  <!-- MANUAL CHECKパネル -->
+  <div id="panel-manual" class="panel">
+    <div class="manual-section">
+      <div class="manual-title">// MANUAL CHECK LIST — ブラウザで実際に動かして確認してください</div>
+      <div id="manualList"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="generateVerifiedFromManual()">▶ 結果をVERIFIED.mdに反映</button>
+    </div>
+  </div>
+
+  <!-- VERIFIEDパネル -->
+  <div id="panel-verified" class="panel">
+    <div class="input-section">
+      <div class="output-header">
+        <span class="output-label">// VERIFIED.md OUTPUT</span>
+        <button class="copy-btn" onclick="copyVerified()">COPY</button>
+      </div>
+      <div class="verified-output visible" id="verifiedOutput">VERIFIED.md はQAチェック完了後に自動生成されます。</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>AUL-DoX Tool Tester Basic — HTMLスタンドアロンツール動作確認システム</footer>
+
+<script>
+// -------------------------------------------------------
+// 状態管理
+// -------------------------------------------------------
+let currentHtml = '';
+let currentSource = '';
+let qaResults = {};
+let manualChecks = [];
+
+// 手動チェック項目定義
+const MANUAL_ITEMS = [
+  { id: 'm1', text: 'ブラウザでファイルを直接開いて正常に表示される' },
+  { id: 'm2', text: '主要な操作フロー（メイン機能）が最初から最後まで完了する' },
+  { id: 'm3', text: 'ボタン・リンクをすべてクリックして反応を確認した' },
+  { id: 'm4', text: 'フォーム入力がある場合、送信・処理が正しく動作する' },
+  { id: 'm5', text: '空入力・未入力のままで操作してもクラッシュしない' },
+  { id: 'm6', text: 'エラー時にわかりやすいメッセージが表示される' },
+  { id: 'm7', text: 'ページをリロードしても正常に動作する' },
+  { id: 'm8', text: 'Chrome・Edgeの最新版で動作を確認した' },
+  { id: 'm9', text: 'コンソール（F12）にエラー・警告が出ていない' },
+  { id: 'm10', text: 'README の操作手順どおりに動作する' },
+];
+
+// -------------------------------------------------------
+// 初期化
+// -------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  // 今日の日付をデフォルト設定
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('testDateFile').value = today;
+  document.getElementById('testDateUrl').value = today;
+
+  // 手動チェックリスト描画
+  renderManualList();
+
+  // ドロップゾーン設定
+  setupDropZone();
+});
+
+// -------------------------------------------------------
+// タブ切り替え
+// -------------------------------------------------------
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// -------------------------------------------------------
+// ドロップゾーン設定
+// -------------------------------------------------------
+function setupDropZone() {
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => {
+    e.preventDefault();
+    dz.classList.add('dragover');
+  });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  });
+}
+
+// -------------------------------------------------------
+// ファイル選択処理
+// -------------------------------------------------------
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  if (!file.name.match(/\.html?$/i)) {
+    showError('fileError', 'HTMLファイル（.html / .htm）を選択してください。');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentHtml = e.target.result;
+    currentSource = file.name;
+    document.getElementById('dropFilename').textContent = '✓ ' + file.name;
+    document.getElementById('runFileBtn').disabled = false;
+    hideError('fileError');
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// -------------------------------------------------------
+// URL取得処理（CORSプロキシ経由）
+// -------------------------------------------------------
+async function fetchUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) {
+    showError('urlError', 'URLを入力してください。');
+    return;
+  }
+  if (!url.startsWith('http')) {
+    showError('urlError', 'http:// または https:// から始まるURLを入力してください。');
+    return;
+  }
+
+  // CORSプロキシを使用して取得を試みる
+  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+
+  try {
+    showError('urlError', ''); hideError('urlError');
+    document.getElementById('runUrlBtn').disabled = true;
+
+    const res = await fetch(proxyUrl);
+    const data = await res.json();
+
+    if (!data.contents) {
+      showError('urlError', 'ページを取得できませんでした。URLを確認してください。');
+      return;
+    }
+
+    currentHtml = data.contents;
+    currentSource = url;
+    document.getElementById('runUrlBtn').disabled = false;
+    hideError('urlError');
+    showError('urlError', '');
+
+    // 成功メッセージ
+    const errEl = document.getElementById('urlError');
+    errEl.style.background = 'rgba(0,229,160,0.08)';
+    errEl.style.borderColor = 'rgba(0,229,160,0.3)';
+    errEl.style.color = 'var(--pass)';
+    errEl.textContent = '✓ ページを取得しました。QA CHECKを実行してください。';
+    errEl.style.display = 'block';
+
+  } catch (err) {
+    showError('urlError', 'URLの取得に失敗しました。CORSの制限またはネットワークエラーの可能性があります。HTMLファイルを直接アップロードしてご利用ください。');
+  }
+}
+
+// -------------------------------------------------------
+// QAチェック実行（ファイル）
+// -------------------------------------------------------
+async function runFileCheck() {
+  if (!currentHtml) return;
+  showLoading('fileLoading');
+  document.getElementById('fileResults').classList.remove('visible');
+
+  await sleep(800); // 解析演出
+
+  const results = analyzeHtml(currentHtml, currentSource);
+  qaResults = results;
+
+  hideLoading('fileLoading');
+  renderResults('fileResults', results);
+  generateVerifiedMd(results);
+}
+
+// -------------------------------------------------------
+// QAチェック実行（URL）
+// -------------------------------------------------------
+async function runUrlCheck() {
+  if (!currentHtml) {
+    showError('urlError', '先に「FETCH」ボタンでページを取得してください。');
+    return;
+  }
+  showLoading('urlLoading');
+  document.getElementById('urlResults').classList.remove('visible');
+
+  await sleep(800);
+
+  const results = analyzeHtml(currentHtml, currentSource);
+  qaResults = results;
+
+  hideLoading('urlLoading');
+  renderResults('urlResults', results);
+  generateVerifiedMd(results);
+}
+
+// -------------------------------------------------------
+// HTML静的解析エンジン
+// -------------------------------------------------------
+function analyzeHtml(html, source) {
+  const results = {
+    source,
+    timestamp: new Date().toLocaleString('ja-JP'),
+    categories: []
+  };
+
+  // カテゴリ1：基本構造チェック
+  const structure = checkStructure(html);
+  results.categories.push(structure);
+
+  // カテゴリ2：セキュリティチェック
+  const security = checkSecurity(html);
+  results.categories.push(security);
+
+  // カテゴリ3：コード品質チェック
+  const quality = checkQuality(html);
+  results.categories.push(quality);
+
+  // カテゴリ4：UI要素チェック
+  const ui = checkUI(html);
+  results.categories.push(ui);
+
+  // カテゴリ5：依存関係チェック
+  const deps = checkDependencies(html);
+  results.categories.push(deps);
+
+  // 集計
+  let totalPass = 0, totalFail = 0, totalWarn = 0, totalManual = 0;
+  results.categories.forEach(cat => {
+    cat.items.forEach(item => {
+      if (item.status === 'pass') totalPass++;
+      else if (item.status === 'fail') totalFail++;
+      else if (item.status === 'warn') totalWarn++;
+      else totalManual++;
+    });
+  });
+
+  results.summary = { totalPass, totalFail, totalWarn, totalManual };
+  results.verdict = totalFail > 0 ? 'fail' : (totalWarn > 0 ? 'warn' : 'pass');
+
+  return results;
+}
+
+// --- 基本構造 ---
+function checkStructure(html) {
+  const items = [];
+
+  items.push({
+    name: 'DOCTYPE宣言',
+    status: /<!DOCTYPE\s+html/i.test(html) ? 'pass' : 'fail',
+    detail: /<!DOCTYPE\s+html/i.test(html) ? '正しく宣言されています' : '<!DOCTYPE html> が見つかりません'
+  });
+
+  items.push({
+    name: 'charset=UTF-8',
+    status: /charset=["']?UTF-8/i.test(html) ? 'pass' : 'warn',
+    detail: /charset=["']?UTF-8/i.test(html) ? 'UTF-8 が指定されています' : 'charset指定が見当たりません（文字化けの可能性）'
+  });
+
+  items.push({
+    name: 'viewport meta',
+    status: /name=["']viewport["']/i.test(html) ? 'pass' : 'warn',
+    detail: /name=["']viewport["']/i.test(html) ? 'viewport が設定されています' : 'viewportメタタグがありません（モバイル表示が崩れる可能性）'
+  });
+
+  items.push({
+    name: 'lang属性',
+    status: /<html[^>]+lang=/i.test(html) ? 'pass' : 'warn',
+    detail: /<html[^>]+lang=/i.test(html) ? 'lang属性が設定されています' : 'html要素にlang属性がありません（アクセシビリティ）'
+  });
+
+  items.push({
+    name: 'title要素',
+    status: /<title>[^<]+<\/title>/i.test(html) ? 'pass' : 'warn',
+    detail: /<title>[^<]+<\/title>/i.test(html) ? 'titleが設定されています' : 'title要素が空または見当たりません'
+  });
+
+  const passCount = items.filter(i => i.status === 'pass').length;
+  const failCount = items.filter(i => i.status === 'fail').length;
+  const warnCount = items.filter(i => i.status === 'warn').length;
+
+  return {
+    icon: '🏗️',
+    name: '基本構造',
+    label: passCount + '/' + items.length + ' PASS',
+    labelClass: failCount > 0 ? 'fail' : (warnCount > 0 ? 'warn' : ''),
+    items
+  };
+}
+
+// --- セキュリティ ---
+function checkSecurity(html) {
+  const items = [];
+
+  // innerHTML使用箇所の検出
+  const innerHtmlMatches = (html.match(/\.innerHTML\s*=/g) || []).length;
+  items.push({
+    name: 'innerHTML 直接代入',
+    status: innerHtmlMatches === 0 ? 'pass' : 'warn',
+    detail: innerHtmlMatches === 0
+      ? 'innerHTML直接代入は検出されませんでした'
+      : innerHtmlMatches + '箇所のinnerHTML代入があります。ユーザー入力を直接代入していないか確認してください'
+  });
+
+  // eval使用チェック
+  const evalMatches = (html.match(/\beval\s*\(/g) || []).length;
+  items.push({
+    name: 'eval() 使用',
+    status: evalMatches === 0 ? 'pass' : 'fail',
+    detail: evalMatches === 0 ? 'eval()は使用されていません' : evalMatches + '箇所のeval()が検出されました（セキュリティリスク）'
+  });
+
+  // document.write
+  const docWriteMatches = (html.match(/document\.write\s*\(/g) || []).length;
+  items.push({
+    name: 'document.write() 使用',
+    status: docWriteMatches === 0 ? 'pass' : 'warn',
+    detail: docWriteMatches === 0 ? 'document.write()は使用されていません' : docWriteMatches + '箇所のdocument.write()が検出されました'
+  });
+
+  // オープンリダイレクト（location.href に変数代入）
+  const locMatches = (html.match(/location\.(href|replace)\s*=\s*[^'"]/g) || []).length;
+  items.push({
+    name: 'オープンリダイレクト',
+    status: locMatches === 0 ? 'pass' : 'warn',
+    detail: locMatches === 0 ? '問題のあるリダイレクトは検出されませんでした' : '変数を使ったリダイレクトが検出されました'
+  });
+
+  const passCount = items.filter(i => i.status === 'pass').length;
+  const failCount = items.filter(i => i.status === 'fail').length;
+  const warnCount = items.filter(i => i.status === 'warn').length;
+
+  return {
+    icon: '🔒',
+    name: 'セキュリティ',
+    label: passCount + '/' + items.length + ' PASS',
+    labelClass: failCount > 0 ? 'fail' : (warnCount > 0 ? 'warn' : ''),
+    items
+  };
+}
+
+// --- コード品質 ---
+function checkQuality(html) {
+  const items = [];
+
+  // console.log残留チェック
+  const consoleMatches = (html.match(/console\.(log|debug|info)\s*\(/g) || []).length;
+  items.push({
+    name: 'console.log 残留',
+    status: consoleMatches === 0 ? 'pass' : 'warn',
+    detail: consoleMatches === 0 ? 'デバッグログは残っていません' : consoleMatches + '箇所のconsole出力が残っています（配布前に削除推奨）'
+  });
+
+  // jQuery使用チェック
+  const jqueryUsed = /jquery/i.test(html);
+  items.push({
+    name: 'jQuery非使用',
+    status: jqueryUsed ? 'warn' : 'pass',
+    detail: jqueryUsed ? 'jQueryが使用されています（依存ライブラリあり）' : 'jQueryは使用されていません'
+  });
+
+  // TODO/FIXMEコメント
+  const todoMatches = (html.match(/\/\/\s*(TODO|FIXME|HACK|XXX)/g) || []).length;
+  items.push({
+    name: 'TODO/FIXMEコメント',
+    status: todoMatches === 0 ? 'pass' : 'warn',
+    detail: todoMatches === 0 ? '未対応コメントは見当たりません' : todoMatches + '件のTODO/FIXMEコメントが残っています'
+  });
+
+  // エラーハンドリング（try-catch）
+  const tryCatch = (html.match(/try\s*\{/g) || []).length;
+  items.push({
+    name: 'エラーハンドリング',
+    status: tryCatch > 0 ? 'pass' : 'warn',
+    detail: tryCatch > 0 ? tryCatch + '箇所のtry-catchが実装されています' : 'try-catchが見当たりません（エラーハンドリングを確認してください）'
+  });
+
+  const passCount = items.filter(i => i.status === 'pass').length;
+  const failCount = items.filter(i => i.status === 'fail').length;
+  const warnCount = items.filter(i => i.status === 'warn').length;
+
+  return {
+    icon: '⚙️',
+    name: 'コード品質',
+    label: passCount + '/' + items.length + ' PASS',
+    labelClass: failCount > 0 ? 'fail' : (warnCount > 0 ? 'warn' : ''),
+    items
+  };
+}
+
+// --- UI要素 ---
+function checkUI(html) {
+  const items = [];
+
+  // ボタン要素の存在確認
+  const btnCount = (html.match(/<button/gi) || []).length;
+  items.push({
+    name: 'ボタン要素',
+    status: btnCount > 0 ? 'pass' : 'manual',
+    detail: btnCount > 0 ? btnCount + '個のbuttonが検出されました' : 'buttonタグは見当たりません（手動で確認してください）'
+  });
+
+  // input要素の確認
+  const inputCount = (html.match(/<input/gi) || []).length;
+  items.push({
+    name: 'input要素',
+    status: 'manual',
+    detail: inputCount > 0 ? inputCount + '個のinputが検出されました（手動で動作確認してください）' : 'input要素はありません'
+  });
+
+  // alt属性なし画像チェック
+  const imgNoAlt = (html.match(/<img(?![^>]*alt=)[^>]*>/gi) || []).length;
+  items.push({
+    name: 'img alt属性',
+    status: imgNoAlt === 0 ? 'pass' : 'warn',
+    detail: imgNoAlt === 0 ? 'alt属性なしの画像はありません' : imgNoAlt + '個のimgにalt属性がありません（アクセシビリティ）'
+  });
+
+  // エラーメッセージ表示箇所
+  const hasErrorMsg = /error|エラー|警告|warn/i.test(html);
+  items.push({
+    name: 'エラーメッセージUI',
+    status: hasErrorMsg ? 'pass' : 'warn',
+    detail: hasErrorMsg ? 'エラー/警告の表示処理が検出されました' : 'エラーメッセージの表示箇所が見当たりません'
+  });
+
+  const passCount = items.filter(i => i.status === 'pass').length;
+  const failCount = items.filter(i => i.status === 'fail').length;
+  const warnCount = items.filter(i => i.status === 'warn').length;
+
+  return {
+    icon: '🖥️',
+    name: 'UI / UX',
+    label: passCount + '/' + items.length + ' PASS',
+    labelClass: failCount > 0 ? 'fail' : (warnCount > 0 ? 'warn' : ''),
+    items
+  };
+}
+
+// --- 依存関係 ---
+function checkDependencies(html) {
+  const items = [];
+
+  // 外部CDNの使用
+  const cdnMatches = html.match(/https?:\/\/[^\s"'>]+\.(js|css)/gi) || [];
+  const cdnList = [...new Set(cdnMatches)];
+
+  items.push({
+    name: '外部CDN依存',
+    status: cdnList.length === 0 ? 'pass' : 'warn',
+    detail: cdnList.length === 0 ? '外部CDNへの依存はありません（完全スタンドアロン）'
+      : cdnList.length + '件の外部リソースが検出されました：' + cdnList.slice(0, 3).map(u => {
+          try { return new URL(u).hostname; } catch(e) { return u.substring(0, 40); }
+        }).join(', ') + (cdnList.length > 3 ? '...' : '')
+  });
+
+  // オフライン動作（file://）
+  const hasLocalCheck = /file:\/\/|localhost/i.test(html);
+  items.push({
+    name: 'ローカルファイル動作',
+    status: 'manual',
+    detail: 'file://で直接開いて動作するか手動で確認してください'
+  });
+
+  // フォントのCDN依存
+  const fontCdn = /fonts\.(googleapis|gstatic)\.com/i.test(html);
+  items.push({
+    name: 'Webフォント使用',
+    status: fontCdn ? 'warn' : 'pass',
+    detail: fontCdn ? 'Googleフォントを使用しています（オフライン環境では表示が異なる場合があります）' : 'Webフォントの依存は検出されませんでした'
+  });
+
+  const passCount = items.filter(i => i.status === 'pass').length;
+  const failCount = items.filter(i => i.status === 'fail').length;
+  const warnCount = items.filter(i => i.status === 'warn').length;
+
+  return {
+    icon: '📦',
+    name: '依存関係',
+    label: passCount + '/' + items.length + ' PASS',
+    labelClass: failCount > 0 ? 'fail' : (warnCount > 0 ? 'warn' : ''),
+    items
+  };
+}
+
+// -------------------------------------------------------
+// 結果の描画
+// -------------------------------------------------------
+function renderResults(containerId, results) {
+  const container = document.getElementById(containerId);
+  const { summary, verdict } = results;
+
+  const verdictMap = {
+    pass: { label: '✅ 合格（配布可能）', cls: 'pass', circleClass: '' },
+    warn: { label: '⚠️ 条件付き合格（警告あり）', cls: 'warn', circleClass: 'warn' },
+    fail: { label: '❌ 不合格（要修正）', cls: 'fail', circleClass: 'fail' }
+  };
+
+  const v = verdictMap[verdict];
+  const total = summary.totalPass + summary.totalFail + summary.totalWarn + summary.totalManual;
+  const score = Math.round((summary.totalPass / (total - summary.totalManual)) * 100) || 0;
+
+  let html = `
+    <div class="score-bar">
+      <div class="score-circle ${v.circleClass}">
+        <div class="score-num">${score}</div>
+        <div class="score-label">SCORE</div>
+      </div>
+      <div class="score-stats">
+        <div class="score-title ${verdict}">${v.label}</div>
+        <div class="stat-row">
+          <div class="stat-item pass">PASS <strong>${summary.totalPass}</strong></div>
+          <div class="stat-item fail">FAIL <strong>${summary.totalFail}</strong></div>
+          <div class="stat-item warn">WARN <strong>${summary.totalWarn}</strong></div>
+          <div class="stat-item">MANUAL <strong>${summary.totalManual}</strong></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  results.categories.forEach((cat, catIdx) => {
+    const failCount = cat.items.filter(i => i.status === 'fail').length;
+    const warnCount = cat.items.filter(i => i.status === 'warn').length;
+    const badgeCls = failCount > 0 ? 'fail' : (warnCount > 0 ? 'warn' : '');
+
+    html += `
+      <div class="check-category">
+        <div class="category-header" onclick="toggleCategory(this)">
+          <div class="category-icon">${cat.icon}</div>
+          <div class="category-name">${cat.name}</div>
+          <div class="category-badge ${badgeCls}">${cat.label}</div>
+          <div class="category-toggle open">▲</div>
+        </div>
+        <div class="check-list open">
+    `;
+
+    cat.items.forEach(item => {
+      const statusLabels = { pass: 'PASS', fail: 'FAIL', warn: 'WARN', manual: 'MANUAL' };
+      html += `
+        <div class="check-item">
+          <div class="check-status ${item.status}">${statusLabels[item.status]}</div>
+          <div class="check-content">
+            <div class="check-name">${item.name}</div>
+            <div class="check-detail ${item.status === 'warn' || item.status === 'fail' ? 'issue' : ''}">${item.detail}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+  container.classList.add('visible');
+}
+
+// -------------------------------------------------------
+// カテゴリ開閉
+// -------------------------------------------------------
+function toggleCategory(header) {
+  const list = header.nextElementSibling;
+  const toggle = header.querySelector('.category-toggle');
+  list.classList.toggle('open');
+  toggle.classList.toggle('open');
+}
+
+// -------------------------------------------------------
+// 手動チェックリスト描画
+// -------------------------------------------------------
+function renderManualList() {
+  const container = document.getElementById('manualList');
+  manualChecks = MANUAL_ITEMS.map(item => ({ ...item, checked: false }));
+
+  let html = '';
+  manualChecks.forEach((item, idx) => {
+    html += `
+      <div class="manual-item">
+        <input type="checkbox" class="manual-check" id="mc${idx}"
+          onchange="toggleManual(${idx}, this.checked)">
+        <label class="manual-text" id="mt${idx}" for="mc${idx}">${item.text}</label>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function toggleManual(idx, checked) {
+  manualChecks[idx].checked = checked;
+  const label = document.getElementById('mt' + idx);
+  if (checked) label.classList.add('checked');
+  else label.classList.remove('checked');
+}
+
+// -------------------------------------------------------
+// VERIFIED.md生成
+// -------------------------------------------------------
+function generateVerifiedMd(results) {
+  const toolName = document.getElementById('toolNameFile').value
+    || document.getElementById('toolNameUrl').value
+    || '（未入力）';
+  const version = document.getElementById('toolVersionFile').value
+    || document.getElementById('toolVersionUrl').value
+    || 'v?.?.?';
+  const developer = document.getElementById('developerFile').value
+    || document.getElementById('developerUrl').value
+    || '（未入力）';
+  const testDate = document.getElementById('testDateFile').value
+    || document.getElementById('testDateUrl').value
+    || results.timestamp.split(' ')[0];
+
+  const verdictMap = {
+    pass: '✅ 合格（配布可能）',
+    warn: '⚠️ 条件付き合格（警告あり）',
+    fail: '❌ 不合格（修正後に再テスト必要）'
+  };
+
+  const { summary, verdict, categories } = results;
+  const total = summary.totalPass + summary.totalFail + summary.totalWarn;
+
+  let md = `# VERIFIED.md — 動作確認済み証明書\n\n`;
+  md += `## ツール情報\n\n`;
+  md += `| 項目 | 内容 |\n|---|---|\n`;
+  md += `| ツール名 | ${toolName} |\n`;
+  md += `| バージョン | ${version} |\n`;
+  md += `| 開発者 | ${developer} |\n`;
+  md += `| テスト実施日 | ${testDate} |\n`;
+  md += `| テスト対象 | ${results.source} |\n`;
+  md += `| 使用チェッカー | AUL-DoX Tool Tester Basic v1.0.0 |\n\n`;
+
+  md += `## テスト結果サマリー\n\n`;
+  md += `| 項目 | 件数 |\n|---|---|\n`;
+  md += `| テスト総数（自動） | ${total}件 |\n`;
+  md += `| PASS | ${summary.totalPass}件 |\n`;
+  md += `| FAIL | ${summary.totalFail}件 |\n`;
+  md += `| WARN（警告） | ${summary.totalWarn}件 |\n`;
+  md += `| MANUAL（手動確認） | ${summary.totalManual}件 |\n\n`;
+
+  md += `## 総合判定\n\n`;
+  md += `**${verdictMap[verdict]}**\n\n`;
+
+  // 問題点一覧
+  const issues = [];
+  categories.forEach(cat => {
+    cat.items.forEach(item => {
+      if (item.status === 'fail' || item.status === 'warn') {
+        issues.push(`- [${item.status.toUpperCase()}] ${cat.name} / ${item.name}：${item.detail}`);
+      }
+    });
+  });
+
+  if (issues.length > 0) {
+    md += `## 検出された問題・警告\n\n`;
+    md += issues.join('\n') + '\n\n';
+  }
+
+  md += `## 注意事項・制限事項\n\n`;
+  md += `- このチェックは静的解析によるものです。実際のブラウザでの動作確認（MANUALチェック）も必ず実施してください\n`;
+  md += `- WARN項目は動作に影響しない場合もありますが、配布前に内容を確認することを推奨します\n\n`;
+
+  md += `## 次回テスト推奨タイミング\n\n`;
+  md += `- 機能の追加・変更を行った場合\n`;
+  md += `- 動作環境（ブラウザバージョン等）が大きく変わった場合\n`;
+  md += `- 定期レビュー：3ヶ月ごと\n\n`;
+
+  md += `---\n`;
+  md += `*Generated by AUL-DoX Tool Tester Basic v1.0.0 — ${results.timestamp}*\n`;
+
+  document.getElementById('verifiedOutput').textContent = md;
+  document.getElementById('verifiedOutput').classList.add('visible');
+}
+
+// 手動チェック結果からVERIFIED.mdに反映
+function generateVerifiedFromManual() {
+  const checkedCount = manualChecks.filter(m => m.checked).length;
+  const total = manualChecks.length;
+
+  const verifiedEl = document.getElementById('verifiedOutput');
+  let current = verifiedEl.textContent;
+
+  const manualSection = `\n## 手動確認チェックリスト（${checkedCount}/${total} 完了）\n\n`;
+  const manualItems = manualChecks.map(m =>
+    `- [${m.checked ? 'x' : ' '}] ${m.text}`
+  ).join('\n');
+
+  if (current.includes('手動確認チェックリスト')) {
+    // 既存のセクションを置換
+    current = current.replace(/\n## 手動確認チェックリスト[\s\S]*?(?=\n##|$)/, manualSection + manualItems + '\n');
+  } else {
+    current = current.replace('---', manualSection + manualItems + '\n\n---');
+  }
+
+  verifiedEl.textContent = current;
+  verifiedEl.classList.add('visible');
+
+  // VERIFIEDタブに切り替え
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab')[3].classList.add('active');
+  document.getElementById('panel-verified').classList.add('active');
+}
+
+// -------------------------------------------------------
+// コピー
+// -------------------------------------------------------
+function copyVerified() {
+  const text = document.getElementById('verifiedOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.currentTarget;
+    const orig = btn.textContent;
+    btn.textContent = 'COPIED!';
+    btn.style.color = 'var(--pass)';
+    btn.style.borderColor = 'var(--pass)';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  });
+}
+
+// -------------------------------------------------------
+// ユーティリティ
+// -------------------------------------------------------
+function showLoading(id) {
+  document.getElementById(id).classList.add('visible');
+}
+
+function hideLoading(id) {
+  document.getElementById(id).classList.remove('visible');
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.style.background = '';
+  el.style.borderColor = '';
+  el.style.color = '';
+  if (msg) el.classList.add('visible');
+}
+
+function hideError(id) {
+  document.getElementById(id).classList.remove('visible');
+}
+
+function resetAll() {
+  currentHtml = '';
+  currentSource = '';
+  document.getElementById('dropFilename').textContent = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('urlInput').value = '';
+  document.getElementById('runFileBtn').disabled = true;
+  document.getElementById('runUrlBtn').disabled = true;
+  document.getElementById('fileResults').innerHTML = '';
+  document.getElementById('fileResults').classList.remove('visible');
+  document.getElementById('urlResults').innerHTML = '';
+  document.getElementById('urlResults').classList.remove('visible');
+  document.getElementById('verifiedOutput').textContent = 'VERIFIED.md はQAチェック完了後に自動生成されます。';
+  hideError('fileError');
+  hideError('urlError');
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+</script>
+</body>
+</html>
